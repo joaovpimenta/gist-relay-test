@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Gist Relay — teste</title>
+<style>
+  body { font: 16px/1.5 -apple-system, system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+  pre { background: #f6f8fa; padding: 1em; border-radius: 6px; overflow-x: auto; }
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; }
+  #status { padding: 0.6em 1em; border-radius: 6px; background: #eef; margin: 1em 0; }
+  #status.error { background: #fee; color: #800; }
+  iframe { width: 100%; min-height: 400px; border: 1px solid #ddd; border-radius: 6px; margin-top: 1em; }
+</style>
+</head>
+<body>
+<h1>Gist Relay</h1>
+<p>Página de teste — abre HTML armazenado num Gist via query string.</p>
+<div id="status">Carregando…</div>
+<div id="out"></div>
+
+<script>
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const gistId = params.get('gist');
+  const fileName = params.get('file') || 'index.html';
+  const status = document.getElementById('status');
+  const out = document.getElementById('out');
+
+  if (!gistId) {
+    status.classList.add('error');
+    status.textContent = 'Uso: ?gist=<ID>&file=<opcional>';
+    return;
+  }
+
+  try {
+    status.textContent = `Buscando gist ${gistId}…`;
+    const r = await fetch(`https://api.github.com/gists/${gistId}`);
+    if (!r.ok) throw new Error('HTTP ' + r.status + ' — ' + (await r.text()));
+    const info = await r.json();
+
+    let target = info.files[fileName];
+    if (!target) {
+      target = Object.values(info.files)[0];
+      status.textContent = `Aviso: arquivo "${fileName}" não existe — usando "${target.filename}"`;
+    } else {
+      status.textContent = `OK — ${target.filename} (${target.size} bytes)`;
+    }
+
+    // Render em iframe via srcdoc para isolar CSS/scripts do conteúdo
+    const html = target.content;
+    const iframe = document.createElement('iframe');
+    iframe.srcdoc = html;
+    iframe.sandbox = 'allow-same-origin allow-scripts';
+    out.appendChild(iframe);
+  } catch (e) {
+    status.classList.add('error');
+    status.textContent = 'Erro: ' + e.message;
+  }
+})();
+</script>
+</body>
+</html>
